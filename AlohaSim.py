@@ -1,11 +1,6 @@
 from __future__ import print_function
 
-import time
-
-import math
-
 __author__ = 'JacobAMason'
-
 
 import random
 import matplotlib.pyplot as plt

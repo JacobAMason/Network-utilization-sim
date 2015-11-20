@@ -24,3 +24,6 @@ class TestAlohaSim(unittest.TestCase):
         array = [0, 1, 2.5, 3, 3.5, 5, 5.5, 7]
         successes = AlohaSim.count_successful_packets_slottedALOHA(array, packet_duration)
         self.assertEqual(successes, 4)
+
+class TestCSMASim(unittest.TestCase):
+    pass
