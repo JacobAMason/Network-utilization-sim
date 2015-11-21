@@ -2,6 +2,7 @@ __author__ = 'JacobAMason'
 
 import unittest
 import AlohaSim
+import CSMASim
 
 
 class TestAlohaSim(unittest.TestCase):
@@ -26,4 +27,18 @@ class TestAlohaSim(unittest.TestCase):
         self.assertEqual(successes, 4)
 
 class TestCSMASim(unittest.TestCase):
-    pass
+    def test_insert_in_sorted_order(self):
+        array = [1,2,3,5,6]
+        e = 4
+        newArray = CSMASim.insert_in_sorted_order(array, e)
+        self.assertListEqual([1,2,3,4,5,6], newArray)
+
+        array = [1,2,3,5,6]
+        e = 0
+        newArray = CSMASim.insert_in_sorted_order(array, e)
+        self.assertListEqual([0,1,2,3,5,6], newArray)
+
+        array = [1,2,3,5,6]
+        e = 8
+        newArray = CSMASim.insert_in_sorted_order(array, e)
+        self.assertListEqual([1,2,3,5,6,8], newArray)
