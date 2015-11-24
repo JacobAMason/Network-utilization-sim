@@ -4,43 +4,67 @@ __author__ = 'JacobAMason'
 
 import random
 import matplotlib.pyplot as plt
+from queue import PriorityQueue
 
 
 def array_generator(size):
     return sorted([random.uniform(0, 1) for e in range(size)])
 
 
-def count_successful_packets_persistent(array, p):
+def determine_new_start_time(packet_st, packetDuration, probability):
+    rng = random.uniform(0, 1)
+    for i, p in enumerate(range(probability, 1+probability, probability)):
+        if rng < p:
+            return (i+1)*packetDuration
+
+
+def count_successful_packets_persistent(start_times, p):
     packetDuration = 0.001
-    roundedArray = [int(x/packetDuration) for x in array]
-    successes = 0
-    fails = 0
+    delay = 0.000001
+    used_time = packetDuration  # Count the first packet
+    unused_time = 0
+    free_time = start_times[0] + packetDuration
+    Q = PriorityQueue()
+    for each in start_times[1:]:
+        Q.put((each, False))
 
-    isBusy = False
-    collision = False
+    while not Q.empty():
+        packet_st, isRetransmit = Q.get()
 
-    for i in range(len(roundedArray)-1):
-        previousPacket_window = roundedArray[i]
-        currentPacket_window = roundedArray[i+1]
-        if currentPacket_window > previousPacket_window:
-            if isBusy and not collision:
-                successes += 1
-            elif isBusy and collision:
-                fails += 1
-            isBusy = False
-            collision = False
-
-        if random.uniform(0, 1) <= p:
-            if isBusy:
-                collision = True
+        if isRetransmit:
+            # print(packet_st, free_time)
+            # assert packet_st == free_time
+            # This packet is a second or later attempt, so we weigh the probability it sends
+            if random.uniform(0, 1) < p:
+                used_time += packetDuration
+                free_time = packet_st + packetDuration
             else:
-                isBusy = True
+                Q.put((packet_st + packetDuration, True))
+            continue
 
-    return successes/float(successes + fails)
+
+        # this packet is sent when nothing else is transmitting.
+        if free_time + delay < packet_st:
+            unused_time += (packet_st - free_time)
+            used_time += packetDuration
+            free_time = packet_st + packetDuration
+        # This packet is sent right after the previous and they collide
+        elif free_time - packetDuration <= packet_st <= free_time - packetDuration + delay:
+            used_time -= packetDuration
+            # TO-DO
+            unused_time += packetDuration
+            free_time = packet_st + packetDuration
+            print("DELAY", packet_st)
+        # This packet is trying to be sent while there is another packet in use
+        else:  # packet_st < free_time + delay
+            Q.put((free_time, True))
+
+
+    return used_time/float(used_time + unused_time)
 
 
 def simulate_persistent(p):
-    for N in range(1000, 5001, 100):
+    for N in range(100, 5001, 100):
         array = array_generator(N)
         throughput = count_successful_packets_persistent(array, p)
         G = N/1000.0
