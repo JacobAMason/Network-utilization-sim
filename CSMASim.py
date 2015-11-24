@@ -92,7 +92,7 @@ def count_successful_packets_nonpersistent(array):
 
 
 def simulate_nonpersistent():
-    for N in range(1000, 5001, 100):
+    for N in range(100, 5001, 100):
         array = array_generator(N)
         throughput = count_successful_packets_nonpersistent(array)
         G = N/1000.0
