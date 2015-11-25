@@ -4,7 +4,7 @@ __author__ = 'JacobAMason'
 
 import random
 import matplotlib.pyplot as plt
-from queue import PriorityQueue
+from Queue import PriorityQueue
 
 
 def array_generator(size):
@@ -32,32 +32,25 @@ def count_successful_packets_persistent(start_times, p):
         packet_st, isRetransmit = Q.get()
 
         if isRetransmit:
-            # print(packet_st, free_time)
-            # assert packet_st == free_time
             # This packet is a second or later attempt, so we weigh the probability it sends
-            if random.uniform(0, 1) < p:
-                used_time += packetDuration
-                free_time = packet_st + packetDuration
-            else:
+            if random.uniform(0, 1) >= p:
                 Q.put((packet_st + packetDuration, True))
-            continue
-
+                continue
 
         # this packet is sent when nothing else is transmitting.
-        if free_time + delay < packet_st:
-            unused_time += (packet_st - free_time)
+        if free_time + delay <= packet_st:
+            if not isRetransmit:
+                unused_time += (packet_st - free_time)
             used_time += packetDuration
             free_time = packet_st + packetDuration
         # This packet is sent right after the previous and they collide
-        elif free_time - packetDuration <= packet_st <= free_time - packetDuration + delay:
+        elif free_time - packetDuration <= packet_st < free_time - packetDuration + delay:
             used_time -= packetDuration
-            # TO-DO
-            unused_time += packetDuration
+            unused_time += (packet_st - free_time + 2*packetDuration)
             free_time = packet_st + packetDuration
-            print("DELAY", packet_st)
         # This packet is trying to be sent while there is another packet in use
         else:  # packet_st < free_time + delay
-            Q.put((free_time, True))
+            Q.put((free_time + delay, True))
 
 
     return used_time/float(used_time + unused_time)
