@@ -5,10 +5,16 @@ __author__ = 'JacobAMason'
 import random
 import matplotlib.pyplot as plt
 from Queue import PriorityQueue
+from decimal import *
+import logging
 
+logging.basicConfig(level=logging.INFO,
+                    format="[%(levelname)s] %(message)s")
+
+getcontext().prec = 6
 
 def array_generator(size):
-    return sorted([random.uniform(0, 1) for e in range(size)])
+    return sorted([Decimal(random.randint(0,1000000))/1000000 for e in range(size)])
 
 
 def determine_new_start_time(packet_st, packetDuration, probability):
@@ -19,11 +25,14 @@ def determine_new_start_time(packet_st, packetDuration, probability):
 
 
 def count_successful_packets_persistent(start_times, p):
-    packetDuration = 0.001
-    delay = 0.000001
+    packetDuration = Decimal("0.001")
+    delay = Decimal("0.000001")
+    # packetDuration = 100
+    # delay = 1
     used_time = packetDuration  # Count the first packet
-    unused_time = 0
+    unused_time = Decimal("0.0")
     free_time = start_times[0] + packetDuration
+    hasCollision = False
     Q = PriorityQueue()
     for each in start_times[1:]:
         Q.put((each, False))
@@ -31,36 +40,50 @@ def count_successful_packets_persistent(start_times, p):
     while not Q.empty():
         packet_st, isRetransmit = Q.get()
 
+        previousPacket_st = free_time - packetDuration
+
+        logging.debug("packet Tx: %f %s %f %s %s", packet_st, isRetransmit, previousPacket_st,
+              previousPacket_st <= packet_st, packet_st < previousPacket_st + delay)
+
+
         if isRetransmit:
             # This packet is a second or later attempt, so we weigh the probability it sends
-            if random.uniform(0, 1) >= p:
+            if random.uniform(0, 1) > p:
+                logging.info("Retransmitted packet decided not to send: %f", p)
                 Q.put((packet_st + packetDuration, True))
                 continue
 
         # this packet is sent when nothing else is transmitting.
         if free_time + delay <= packet_st:
             if not isRetransmit:
-                unused_time += (packet_st - free_time)
+                unused_time += (packet_st - free_time - delay)
             used_time += packetDuration
             free_time = packet_st + packetDuration
+            logging.debug("packet sent")
+            hasCollision = False
         # This packet is sent right after the previous and they collide
-        elif free_time - packetDuration <= packet_st < free_time - packetDuration + delay:
-            used_time -= packetDuration
-            unused_time += (packet_st - free_time + 2*packetDuration)
+        elif previousPacket_st <= packet_st < previousPacket_st + delay:
+            if not hasCollision:
+                used_time -= packetDuration
+                unused_time += (packet_st - free_time + 2*packetDuration)
+                hasCollision = True
             free_time = packet_st + packetDuration
+            logging.debug("collision %f %f", used_time, unused_time)
         # This packet is trying to be sent while there is another packet in use
         else:  # packet_st < free_time + delay
+            logging.debug("reschedule: %f", free_time + delay)
             Q.put((free_time + delay, True))
 
 
-    return used_time/float(used_time + unused_time)
+    return used_time/(used_time + unused_time)
 
 
 def simulate_persistent(p):
-    for N in range(100, 5001, 100):
+    for N in range(100, 3001, 200):
         array = array_generator(N)
+        G = N/Decimal("1000")
+        logging.debug("G:", G)
         throughput = count_successful_packets_persistent(array, p)
-        G = N/1000.0
         yield (G, throughput)
 
 

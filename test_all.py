@@ -1,3 +1,5 @@
+from decimal import *
+
 __author__ = 'JacobAMason'
 
 import unittest
@@ -42,3 +44,10 @@ class TestCSMASim(unittest.TestCase):
         e = 8
         newArray = CSMASim.insert_in_sorted_order(array, e)
         self.assertListEqual([1,2,3,5,6,8], newArray)
+
+    def test_count_successful_packets_persistent(self):
+        getcontext().prec = 6
+        start_times = [Decimal("0.0"), Decimal("0.0001"), Decimal("0.0002"), Decimal("0.0003")]
+        p = 1
+        S = CSMASim.count_successful_packets_persistent(start_times, p)
+        print "\nthroughput:", S
