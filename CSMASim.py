@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+from itertools import repeat
+
 __author__ = 'JacobAMason'
 
 import random
@@ -7,11 +9,12 @@ import matplotlib.pyplot as plt
 from Queue import PriorityQueue
 from decimal import *
 import logging
+from multiprocessing import Pool
 
 logging.basicConfig(level=logging.INFO,
                     format="[%(levelname)s] %(message)s")
 
-getcontext().prec = 6
+getcontext().prec = 7
 
 def array_generator(size):
     return sorted([Decimal(random.randint(0,1000000))/1000000 for e in range(size)])
@@ -26,7 +29,7 @@ def determine_new_start_time(packet_st, packetDuration, probability):
 
 def count_successful_packets_persistent(start_times, p):
     packetDuration = Decimal("0.001")
-    delay = Decimal("0.000001")
+    delay = Decimal("0.0000001")
     # packetDuration = 100
     # delay = 1
     used_time = packetDuration  # Count the first packet
@@ -49,7 +52,7 @@ def count_successful_packets_persistent(start_times, p):
         if isRetransmit:
             # This packet is a second or later attempt, so we weigh the probability it sends
             if random.uniform(0, 1) > p:
-                logging.info("Retransmitted packet decided not to send: %f", p)
+                logging.debug("Retransmitted packet decided not to send: %f", p)
                 Q.put((packet_st + packetDuration, True))
                 continue
 
@@ -65,9 +68,9 @@ def count_successful_packets_persistent(start_times, p):
         elif previousPacket_st <= packet_st < previousPacket_st + delay:
             if not hasCollision:
                 used_time -= packetDuration
-                unused_time += (packet_st - free_time + 2*packetDuration)
+                unused_time += packetDuration
                 hasCollision = True
-            free_time = packet_st + packetDuration
+                free_time = packet_st + packetDuration
             logging.debug("collision %f %f", used_time, unused_time)
         # This packet is trying to be sent while there is another packet in use
         else:  # packet_st < free_time + delay
@@ -78,14 +81,18 @@ def count_successful_packets_persistent(start_times, p):
     return used_time/(used_time + unused_time)
 
 
-def simulate_persistent(p):
-    for N in range(100, 3001, 200):
-        array = array_generator(N)
-        G = N/Decimal("1000")
-        logging.debug("G:", G)
-        throughput = count_successful_packets_persistent(array, p)
-        yield (G, throughput)
+def multiprocess_persistent(data):
+    N, p = data
+    array = array_generator(N)
+    G = N/Decimal("1000")
+    logging.debug("G:", G)
+    throughput = count_successful_packets_persistent(array, p)
+    return (G, throughput)
 
+
+def simulate_persistent(p):
+    pool = Pool(8)
+    return pool.map(multiprocess_persistent, zip(range(100, 5001, 200), repeat(p)))
 
 def insert_in_sorted_order(array, e):
     array.append(e)
@@ -93,12 +100,12 @@ def insert_in_sorted_order(array, e):
 
 
 def count_successful_packets_nonpersistent(array):
-    packetDuration = 0.001
-    delay = 0.000001
-    successes = 0
-    fails = 0
+    packetDuration = Decimal("0.001")
+    delay = Decimal("0.000001")
+    successes = Decimal("0")
+    fails = Decimal("0")
 
-    free_time = 0
+    free_time = Decimal("0")
 
     # TX = []
 
@@ -108,7 +115,7 @@ def count_successful_packets_nonpersistent(array):
         # check to see if there is already a packet in the air
         # if there is, put this packet back in the queue
         if free_time + delay - packetDuration <= packet_st <= free_time + delay:
-            packet_st += packetDuration*random.uniform(1,400)
+            packet_st += packetDuration*Decimal(random.uniform(1,400))
             array = insert_in_sorted_order(array, packet_st)
             # print("replaced packet")
         elif packet_st < free_time + delay - packetDuration:
@@ -128,7 +135,7 @@ def count_successful_packets_nonpersistent(array):
             # print("TX")
 
     # print(TX)
-    return successes/float(successes + fails)
+    return successes/(successes + fails)
 
 
 def simulate_nonpersistent():
@@ -144,25 +151,27 @@ if __name__ == "__main__":
     plt.ion()
     plt.show()
 
+    # for point in simulate_nonpersistent():
+    #     plt.scatter(*point, color="black")
+    #     plt.pause(0.0001)
+
     for point in simulate_persistent(1):
         plt.scatter(*point, marker='.', color="red")
         plt.pause(0.0001)
 
-    for point in simulate_persistent(0.5):
-        plt.scatter(*point, marker='.', color="orange")
-        plt.pause(0.0001)
-
-    for point in simulate_persistent(0.1):
-        plt.scatter(*point, marker='.', color="blue")
-        plt.pause(0.0001)
+    # for point in simulate_persistent(0.5):
+    #     plt.scatter(*point, marker='.', color="orange")
+    #     plt.pause(0.0001)
+    #
+    # for point in simulate_persistent(0.1):
+    #     plt.scatter(*point, marker='.', color="blue")
+    #     plt.pause(0.0001)
 
     for point in simulate_persistent(0.01):
         plt.scatter(*point, marker='.', color="green")
         plt.pause(0.0001)
 
-    for point in simulate_nonpersistent():
-        plt.scatter(*point, color="black")
-        plt.pause(0.0001)
+
 
     print("Done!")
     while(True):
